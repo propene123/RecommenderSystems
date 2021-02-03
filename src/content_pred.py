@@ -59,4 +59,4 @@ def pred(user_id, bus_id):
     return clf.predict(count_mat[idx].todense())
 
 
-print(pred(revs.iloc[1360, revs.columns.get_loc('user_id')], bus.index[3]))
+print(pred(revs.iloc[4325, revs.columns.get_loc('user_id')], bus.index[3]))
