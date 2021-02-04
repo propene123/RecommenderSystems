@@ -105,7 +105,6 @@ def get_attr(in_dict):
     return res
 
 
-
 print("Loading data and intialising recommender. Please wait...")
 
 full_bus = pd.read_csv('../data/pruned_bus.csv')
@@ -144,6 +143,7 @@ print("Welcome to the Bars4U, the bar recommender system.")
 print("This system will generate a list of 5 bars that we think you may enjoy a visit to")
 print("\n\n")
 
+
 def get_user_id():
     valid = False
     user_id = None
@@ -154,8 +154,6 @@ def get_user_id():
         else:
             print("That is not a valid user_id, please try entering another user_id")
     return user_id
-
-
 
 
 def gen_preds(user):
@@ -173,7 +171,8 @@ def gen_preds(user):
             row = rated_bus[rated_bus['business_id'] == t]['stars'].index
             for j in range(len(row)):
                 x.append(counts[0].flatten().tolist())
-                y.append(rated_bus[rated_bus['business_id'] == t]['stars'][row[j]])
+                y.append(rated_bus[rated_bus['business_id']
+                                   == t]['stars'][row[j]])
         x = np.array(x)
         y = np.array(y)
         clf.fit(x, y)
@@ -188,6 +187,25 @@ def gen_preds(user):
     return preds
 
 
+def inspect_item(num):
+    valid = False
+    sel = None
+    exit_words = ['QUIT', 'quit', 'q', 'Q']
+    while not valid:
+        sel = input(
+            "Please enter the number of the bar you wish to further inspect\nor enter quit/QUIT/q/Q to logout\n")
+        try:
+            sel = int(sel)
+            if 0 < sel <= num:
+                valid = True
+        except ValueError:
+            if sel in exit_words:
+                sel = -1
+                valid = True
+        if not valid:
+            print("That is not a vaid response, please try again")
+    return sel
+
 
 while not QUIT:
     user = get_user_id()
@@ -197,7 +215,11 @@ while not QUIT:
     print("This step can take longer the fewer reviews you have")
     print("\n")
     preds = gen_preds(user)
+    item_tot = 0
     for i, p in enumerate(preds):
         item_name = full_bus.loc[p.iid, 'name']
+        item_tot += 1
         print(f'{i+1}. {item_name}')
-
+    response = inspect_item(item_tot)
+    if response != -1:
+        print(response)
