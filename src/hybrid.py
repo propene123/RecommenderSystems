@@ -44,7 +44,7 @@ class Hyb(AlgoBase):
             item_id = self.trainset.to_raw_iid(i)
         except ValueError:
             item_id = rem_pref(item_id, 'UKN__')
-        if self.bus_dat.loc[item_id, 'review_count'] < 100:
+        if self.bus_dat.loc[item_id, 'review_count'] < 50:
             if content:
                 idx = self.indices[self.indices == item_id].index[0]
                 return user_prof.predict(self.count_mat[idx].todense())
@@ -105,6 +105,9 @@ def get_attr(in_dict):
     return res
 
 
+
+print("Loading data and intialising recommender. Please wait...")
+
 full_bus = pd.read_csv('../data/pruned_bus.csv')
 bus = full_bus[['categories', 'attributes', 'business_id']].copy()
 bus.set_index('business_id', inplace=True)
@@ -127,38 +130,74 @@ indices = pd.Series(bus.index)
 
 
 reviews = pd.read_csv('../data/pruned_revs.csv')
+users = pd.read_csv('../data/pruned_users.csv')
 pivot = reviews[['user_id', 'business_id', 'stars']]
+print(pivot.head())
 r = Reader(rating_scale=(1, 5))
 data = Dataset.load_from_df(pivot, r)
 train = data.build_full_trainset()
 alg = Hyb(count_mat, indices, reviews, full_bus)
 alg.fit(train)
-preds = []
-user = pivot.iloc[6789, pivot.columns.get_loc('user_id')]
-user_revs = reviews.loc[reviews['user_id'] == user]
-rated_bus = user_revs.loc[:, 'business_id':'stars']
-clf = NearestCentroid()
-use_content = False
-if user_revs.loc[:, 'stars'].nunique() > 1:
-    x = []
-    y = []
-    for t in rated_bus['business_id']:
-        idx = indices[indices == t].index[0]
-        counts = np.array(count_mat[idx].todense())
-        row = rated_bus[rated_bus['business_id'] == t]['stars'].index
-        for j in range(len(row)):
-            x.append(counts[0].flatten().tolist())
-            y.append(rated_bus[rated_bus['business_id'] == t]['stars'][row[j]])
-    x = np.array(x)
-    y = np.array(y)
-    clf.fit(x, y)
-    use_content = True
-rated_list = rated_bus['business_id'].values
-for bus_id in bus.index:
-    if bus_id not in rated_list:
-        preds.append(alg.predict(user, bus_id, clf, use_content))
+QUIT = False
+print("\n\n")
+print("Welcome to the Bars4U, the bar recommender system.")
+print("This system will generate a list of 5 bars that we think you may enjoy a visit to")
+print("\n\n")
 
-preds.sort(reverse=True, key=lambda x: x.est)
-preds = preds[0:5]
-for p in preds:
-    print(f'ID: {p.iid} || PRED: {p.est}')
+def get_user_id():
+    valid = False
+    user_id = None
+    while not valid:
+        user_id = input("Please enter your user_id:\n")
+        if len(users[users['user_id'] == user_id].index) > 0:
+            valid = True
+        else:
+            print("That is not a valid user_id, please try entering another user_id")
+    return user_id
+
+
+
+
+def gen_preds(user):
+    preds = []
+    user_revs = reviews.loc[reviews['user_id'] == user]
+    rated_bus = user_revs.loc[:, 'business_id':'stars']
+    clf = NearestCentroid()
+    use_content = False
+    if user_revs.loc[:, 'stars'].nunique() > 1:
+        x = []
+        y = []
+        for t in rated_bus['business_id']:
+            idx = indices[indices == t].index[0]
+            counts = np.array(count_mat[idx].todense())
+            row = rated_bus[rated_bus['business_id'] == t]['stars'].index
+            for j in range(len(row)):
+                x.append(counts[0].flatten().tolist())
+                y.append(rated_bus[rated_bus['business_id'] == t]['stars'][row[j]])
+        x = np.array(x)
+        y = np.array(y)
+        clf.fit(x, y)
+        use_content = True
+    rated_list = rated_bus['business_id'].values
+    for bus_id in bus.index:
+        if bus_id not in rated_list:
+            preds.append(alg.predict(user, bus_id, clf, use_content))
+    preds.sort(reverse=True, key=lambda x: x.est)
+    if len(preds) >= 5:
+        preds = preds[0:5]
+    return preds
+
+
+
+while not QUIT:
+    user = get_user_id()
+    user_name = users.loc[users['user_id'] == user, 'name'].iloc[0]
+    print(f"Welcome back {user_name}")
+    print("The system is now generating your recommendations")
+    print("This step can take longer the fewer reviews you have")
+    print("\n")
+    preds = gen_preds(user)
+    for i, p in enumerate(preds):
+        item_name = full_bus.loc[p.iid, 'name']
+        print(f'{i+1}. {item_name}')
+
