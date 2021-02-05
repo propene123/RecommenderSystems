@@ -1,4 +1,5 @@
 import ast
+from datetime import datetime
 import numpy as np
 import pandas as pd
 from surprise import AlgoBase, Dataset, Reader, accuracy
@@ -207,6 +208,46 @@ def inspect_item(num):
     return sel
 
 
+
+
+def display_item(item):
+    valid = False
+    sel = None
+    item_row = full_bus.loc[item]
+    print(item_row)
+    print(item_row['name'])
+    print('*'*len(item_row['name']))
+    rating_str = f'Average Rating: {item_row["stars"]} stars'
+    print(rating_str)
+    print('*'*len(rating_str))
+    print('Address:')
+    print(item_row['address'])
+    print(item_row['city'])
+    print(item_row['state'])
+    print(item_row['postal_code'])
+    print('*'*len(item_row['address']))
+    print('Tags:')
+    longest = 0
+    cats = item_row['categories'].split(',')
+    for c in cats:
+        tmp = c.strip()
+        longest = max(longest, len(tmp))
+        print(c.strip())
+    print('*'*longest)
+    print("Opening Times")
+    time_dict = ast.literal_eval(item_row['hours'])
+    for day, times in time_dict.items():
+        tmp = times.split('-')
+        ltime = datetime.strptime(tmp[0], '%H:%M')
+        rtime = datetime.strptime(tmp[1], '%H:%M')
+        ltime = ltime.strftime('%H:%M')
+        rtime = rtime.strftime('%H:%M')
+        print(f'{day:<13}{ltime}-{rtime}')
+    return sel
+
+
+
+
 while not QUIT:
     user = get_user_id()
     user_name = users.loc[users['user_id'] == user, 'name'].iloc[0]
@@ -222,4 +263,4 @@ while not QUIT:
         print(f'{i+1}. {item_name}')
     response = inspect_item(item_tot)
     if response != -1:
-        print(response)
+        response = display_item(preds[response-1].iid)
