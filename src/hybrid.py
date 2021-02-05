@@ -48,11 +48,11 @@ class Hyb(AlgoBase):
         if self.bus_dat.loc[item_id, 'review_count'] < 50:
             if content:
                 idx = self.indices[self.indices == item_id].index[0]
-                return user_prof.predict(self.count_mat[idx].todense())
+                return user_prof.predict(self.count_mat[idx].todense()), True
             else:
-                return self.cfp.estimate(u, i)
+                return self.cfp.estimate(u, i), False
         else:
-            return self.cfp.estimate(u, i)
+            return self.cfp.estimate(u, i), False
 
     def predict(self, uid, iid, user_prof, content, r_ui=None, clip=True, verbose=False):
         # Convert raw ids to inner ids
@@ -67,18 +67,21 @@ class Hyb(AlgoBase):
 
         details = {}
         try:
-            est = self.estimate(iuid, iiid, user_prof, content)
+            est, used_content = self.estimate(iuid, iiid, user_prof, content)
 
             # If the details dict was also returned
             if isinstance(est, tuple):
                 est, details = est
 
             details['was_impossible'] = False
+            details['used_content'] = used_content
 
         except PredictionImpossible as e:
             est = self.default_prediction()
             details['was_impossible'] = True
             details['reason'] = str(e)
+            details['used_content'] = False
+
 
         # clip estimate into [lower_bound, higher_bound]
         if clip:
@@ -210,11 +213,11 @@ def inspect_item(num):
 
 
 
-def display_item(item):
+def display_item(item, rat, used_content):
     valid = False
     sel = None
     item_row = full_bus.loc[item]
-    print(item_row)
+    print('*'*len(item_row['name']))
     print(item_row['name'])
     print('*'*len(item_row['name']))
     rating_str = f'Average Rating: {item_row["stars"]} stars'
@@ -234,7 +237,7 @@ def display_item(item):
         longest = max(longest, len(tmp))
         print(c.strip())
     print('*'*longest)
-    print("Opening Times")
+    print("Opening Times:")
     time_dict = ast.literal_eval(item_row['hours'])
     for day, times in time_dict.items():
         tmp = times.split('-')
@@ -243,24 +246,87 @@ def display_item(item):
         ltime = ltime.strftime('%H:%M')
         rtime = rtime.strftime('%H:%M')
         print(f'{day:<13}{ltime}-{rtime}')
+    print('*'*24)
+    print(f"We think you would rate this estabishment {round(rat)} stars")
+    if used_content:
+        tmp_str = "Based off of previous establishments you have rated"
+        longest = len(tmp_str)
+        print(tmp_str)
+    else:
+        tmp_str = "Based off of what similar users to you have rated it"
+        longest = len(tmp_str)
+        print(tmp_str)
+    print('*'*longest)
+    print()
+    print("Would you like to:\n1. View amenities for this estabishment\n2. Go back")
+    while not valid:
+        sel = input()
+        if sel == '1':
+            sel = 1
+            valid = True
+        elif sel == '2':
+            sel = 2
+            valid = True
+        else:
+            print("That is not a valid response. Please try again")
     return sel
 
 
+
+
+def display_amenities(item):
+    for key, value in item.items():
+        trans = ast.literal_eval(str(value))
+        if isinstance(trans, dict):
+            deeper = False
+            for val in trans.values():
+                if str(val) != 'False':
+                    deeper = True
+            if deeper:
+                print('*'*50)
+                print(f'{key}:')
+                display_amenities(trans)
+        else:
+            if str(value) in ('True', 'False'):
+                if value:
+                    print(f'{key}')
+            else:
+                print(f'{key}: {trans}')
+    print('*'*50)
+
+
+
+def show_items(preds):
+    while True:
+        item_tot = 0
+        for i, p in enumerate(preds):
+            item_name = full_bus.loc[p.iid, 'name']
+            item_tot += 1
+            print(f'{i+1}. {item_name}')
+        response = inspect_item(item_tot)
+        if response != -1:
+            while True:
+                amen = display_item(preds[response-1].iid, preds[response-1].est, preds[response-1].details['used_content'])
+                if amen == 1:
+                    amens = preds[response-1].iid
+                    print('*'*50)
+                    display_amenities(ast.literal_eval(full_bus.loc[amens, 'attributes']))
+                    input("Press any key to return to item view...")
+                    print('\n')
+                elif amen == 2:
+                    break
+            print('\n')
+        else:
+            print('\n')
+            break
 
 
 while not QUIT:
     user = get_user_id()
     user_name = users.loc[users['user_id'] == user, 'name'].iloc[0]
     print(f"Welcome back {user_name}")
-    print("The system is now generating your recommendations")
+    print("The system is now generating your recommendations in order")
     print("This step can take longer the fewer reviews you have")
     print("\n")
     preds = gen_preds(user)
-    item_tot = 0
-    for i, p in enumerate(preds):
-        item_name = full_bus.loc[p.iid, 'name']
-        item_tot += 1
-        print(f'{i+1}. {item_name}')
-    response = inspect_item(item_tot)
-    if response != -1:
-        response = display_item(preds[response-1].iid)
+    show_items(preds)
