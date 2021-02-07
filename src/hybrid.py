@@ -272,8 +272,6 @@ def display_item(item, rat, used_content):
     return sel
 
 
-
-
 def display_amenities(item):
     for key, value in item.items():
         trans = ast.literal_eval(str(value))
@@ -321,12 +319,53 @@ def show_items(preds):
             break
 
 
-while not QUIT:
+
+def update_rec():
+    input("Placeholder...")
+
+
+def login():
     user = get_user_id()
     user_name = users.loc[users['user_id'] == user, 'name'].iloc[0]
     print(f"Welcome back {user_name}")
-    print("The system is now generating your recommendations in order")
-    print("This step can take longer the fewer reviews you have")
-    print("\n")
-    preds = gen_preds(user)
-    show_items(preds)
+    quit = False
+    while not quit:
+        valid = False
+        print("Would you like to:\n1. Generate recommendations\n2. Update a bars rating\n3. Logout")
+        while not valid:
+            resp = input()
+            if resp == '1':
+                valid = True
+                print("The system is now generating your recommendations in order")
+                print("This step can take longer the fewer reviews you have")
+                print("\n")
+                preds = gen_preds(user)
+                show_items(preds)
+            elif resp == '2':
+                valid = True
+                update_rec()
+            elif resp == '3':
+                valid = True
+                quit = True
+            else:
+                valid = False
+                print(f'resp={resp}')
+                print("That is not a valid response. Please try again")
+
+
+
+while not QUIT:
+    valid = False
+    print("Would you like to:\n1. Login\n2. Quit")
+    while not valid:
+        resp = input()
+        if resp == '1':
+            valid = True
+            login()
+        elif resp == '2':
+            valid = True
+            QUIT = True
+        else:
+            valid = False
+            print("That is not a valid response. Please try again")
+
