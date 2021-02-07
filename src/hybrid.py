@@ -82,7 +82,6 @@ class Hyb(AlgoBase):
             details['reason'] = str(e)
             details['used_content'] = False
 
-
         # clip estimate into [lower_bound, higher_bound]
         if clip:
             lower_bound, higher_bound = self.trainset.rating_scale
@@ -135,17 +134,13 @@ indices = pd.Series(bus.index)
 reviews = pd.read_csv('../data/pruned_revs.csv')
 users = pd.read_csv('../data/pruned_users.csv')
 pivot = reviews[['user_id', 'business_id', 'stars']]
+pivot = reviews.loc[:, ['user_id', 'business_id', 'stars']]
 print(pivot.head())
 r = Reader(rating_scale=(1, 5))
 data = Dataset.load_from_df(pivot, r)
 train = data.build_full_trainset()
 alg = Hyb(count_mat, indices, reviews, full_bus)
 alg.fit(train)
-QUIT = False
-print("\n\n")
-print("Welcome to the Bars4U, the bar recommender system.")
-print("This system will generate a list of 5 bars that we think you may enjoy a visit to")
-print("\n\n")
 
 
 def get_user_id():
@@ -209,8 +204,6 @@ def inspect_item(num):
         if not valid:
             print("That is not a vaid response, please try again")
     return sel
-
-
 
 
 def display_item(item, rat, used_content):
@@ -293,7 +286,6 @@ def display_amenities(item):
     print('*'*50)
 
 
-
 def show_items(preds):
     while True:
         item_tot = 0
@@ -304,11 +296,13 @@ def show_items(preds):
         response = inspect_item(item_tot)
         if response != -1:
             while True:
-                amen = display_item(preds[response-1].iid, preds[response-1].est, preds[response-1].details['used_content'])
+                amen = display_item(
+                    preds[response-1].iid, preds[response-1].est, preds[response-1].details['used_content'])
                 if amen == 1:
                     amens = preds[response-1].iid
                     print('*'*50)
-                    display_amenities(ast.literal_eval(full_bus.loc[amens, 'attributes']))
+                    display_amenities(ast.literal_eval(
+                        full_bus.loc[amens, 'attributes']))
                     input("Press any key to return to item view...")
                     print('\n')
                 elif amen == 2:
@@ -319,17 +313,53 @@ def show_items(preds):
             break
 
 
-
-def update_rec():
-    input("Placeholder...")
+def update_rec(user):
+    global pivot
+    valid = False
+    print("Please enter the id of the bar you would like to rate")
+    while not valid:
+        the_id = input()
+        if the_id in full_bus.index:
+            valid = True
+            valid_rat = False
+            the_name = full_bus.loc[the_id, 'name']
+            print(f"Please enter a rating between 1 and 5 stars for {the_name}")
+            mask = (pivot['user_id'] == user) & (pivot['business_id'] == the_id)
+            if len(pivot.loc[mask].index) > 0:
+                print(f'Your current rating for {the_name} is {pivot.loc[mask, "stars"].iloc[0]} stars')
+            else:
+                print(f'{the_name} is currently unrated by you')
+            while not valid_rat:
+                rat = input()
+                try:
+                    rat = int(rat)
+                    if 0 < rat < 6:
+                        valid_rat = True
+                        mask = (pivot['user_id'] == user) & (pivot['business_id'] == the_id)
+                        if len(pivot.loc[mask, 'stars'].index) > 0:
+                            pivot.loc[mask, 'stars'] = rat
+                        else:
+                            d = {'user_id': user, 'business_id': the_id, 'stars': rat}
+                            pivot = pivot.append(d, ignore_index=True)
+                        print(f'Success your rating for {the_name} has been updated to {rat} stars')
+                        mask = (pivot['user_id'] == user) & (pivot['business_id'] == the_id)
+                    else:
+                        valid_rat = False
+                        print("That is not a valid response. Please try again...")
+                except ValueError:
+                    valid_rat = False
+                    print("That is not a valid response. Please try again...")
+        else:
+            valid = False
+            print("That bar does not exist in our database. Please try re entering the ID")
 
 
 def login():
     user = get_user_id()
     user_name = users.loc[users['user_id'] == user, 'name'].iloc[0]
     print(f"Welcome back {user_name}")
-    quit = False
-    while not quit:
+    leave = False
+    while not leave:
         valid = False
         print("Would you like to:\n1. Generate recommendations\n2. Update a bars rating\n3. Logout")
         while not valid:
@@ -343,29 +373,36 @@ def login():
                 show_items(preds)
             elif resp == '2':
                 valid = True
-                update_rec()
+                update_rec(user)
             elif resp == '3':
                 valid = True
-                quit = True
+                leave = True
             else:
                 valid = False
                 print(f'resp={resp}')
                 print("That is not a valid response. Please try again")
 
 
+def start_ui():
+    leave = False
+    print("\n\n")
+    print("Welcome to the Bars4U, the bar recommender system.")
+    print("This system will generate a list of 5 bars that we think you may enjoy a visit to")
+    print("\n\n")
+    while not leave:
+        valid = False
+        print("Would you like to:\n1. Login\n2. Quit")
+        while not valid:
+            resp = input()
+            if resp == '1':
+                valid = True
+                login()
+            elif resp == '2':
+                valid = True
+                leave = True
+            else:
+                valid = False
+                print("That is not a valid response. Please try again")
 
-while not QUIT:
-    valid = False
-    print("Would you like to:\n1. Login\n2. Quit")
-    while not valid:
-        resp = input()
-        if resp == '1':
-            valid = True
-            login()
-        elif resp == '2':
-            valid = True
-            QUIT = True
-        else:
-            valid = False
-            print("That is not a valid response. Please try again")
 
+start_ui()
