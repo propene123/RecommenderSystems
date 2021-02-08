@@ -110,6 +110,7 @@ def get_attr(in_dict):
 
 print("Loading data and intialising recommender. Please wait...")
 
+covid = pd.read_csv('../data/pruned_covid.csv')
 full_bus = pd.read_csv('../data/pruned_bus.csv')
 bus = full_bus[['categories', 'attributes', 'business_id']].copy()
 bus.set_index('business_id', inplace=True)
@@ -155,7 +156,7 @@ def get_user_id():
     return user_id
 
 
-def gen_preds(user):
+def gen_preds(user, takeout):
     preds = []
     user_revs = reviews.loc[reviews['user_id'] == user]
     rated_bus = user_revs.loc[:, 'business_id':'stars']
@@ -354,6 +355,38 @@ def update_rec(user):
             print("That bar does not exist in our database. Please try re entering the ID")
 
 
+
+
+
+def takeaway(user):
+    valid = False
+    print("Due to the ongoing Covid-19 pandemic we can either recommend all bars, or only bars offering takeout services")
+    print("Please select your preference")
+    while not valid:
+        print("1. All bars\n2. Bars offering takeout")
+        resp = input()
+        if resp == '1':
+            valid = True
+            print("The system is now generating your recommendations in order")
+            print("This step can take longer the fewer reviews you have")
+            print("\n")
+            preds = gen_preds(user, False)
+            show_items(preds)
+        elif resp == '2':
+            valid = True
+            print("The system is now generating your recommendations in order")
+            print("This step can take longer the fewer reviews you have")
+            print("\n")
+            preds = gen_preds(user, True)
+            show_items(preds)
+        else:
+            valid = False
+            print("That is not a valid response. Please try again")
+
+
+
+
+
 def login():
     user = get_user_id()
     user_name = users.loc[users['user_id'] == user, 'name'].iloc[0]
@@ -369,7 +402,7 @@ def login():
                 print("The system is now generating your recommendations in order")
                 print("This step can take longer the fewer reviews you have")
                 print("\n")
-                preds = gen_preds(user)
+                preds = gen_preds(user, False)
                 show_items(preds)
             elif resp == '2':
                 valid = True
