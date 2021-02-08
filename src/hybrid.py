@@ -132,16 +132,20 @@ count_mat = count.fit_transform(bus['keywords'])
 indices = pd.Series(bus.index)
 
 
+def fit_alg(a, p):
+    r = Reader(rating_scale=(1, 5))
+    data = Dataset.load_from_df(pivot, r)
+    train = data.build_full_trainset()
+    alg.fit(train)
+
+
 reviews = pd.read_csv('../data/pruned_revs.csv')
 users = pd.read_csv('../data/pruned_users.csv')
 pivot = reviews[['user_id', 'business_id', 'stars']]
 pivot = reviews.loc[:, ['user_id', 'business_id', 'stars']]
 print(pivot.head())
-r = Reader(rating_scale=(1, 5))
-data = Dataset.load_from_df(pivot, r)
-train = data.build_full_trainset()
 alg = Hyb(count_mat, indices, reviews, full_bus)
-alg.fit(train)
+fit_alg(alg, pivot)
 
 
 def get_user_id():
@@ -359,6 +363,8 @@ def update_rec(user):
                             d = {'user_id': user, 'business_id': the_id, 'stars': rat}
                             pivot = pivot.append(d, ignore_index=True)
                         print(f'Success your rating for {the_name} has been updated to {rat} stars')
+                        print('Regenerating recommender system. Please wait...')
+                        fit_alg(alg, pivot)
                         mask = (pivot['user_id'] == user) & (pivot['business_id'] == the_id)
                     else:
                         valid_rat = False
