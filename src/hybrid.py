@@ -178,9 +178,15 @@ def gen_preds(user, takeout):
         clf.fit(x, y)
         use_content = True
     rated_list = rated_bus['business_id'].values
-    for bus_id in bus.index:
-        if bus_id not in rated_list:
-            preds.append(alg.predict(user, bus_id, clf, use_content))
+    covid_bus = covid['business_id'].values
+    if takeout:
+        for bus_id in covid_bus:
+            if bus_id not in rated_list:
+                preds.append(alg.predict(user, bus_id, clf, use_content))
+    else:
+        for bus_id in bus.index:
+            if bus_id not in rated_list:
+                preds.append(alg.predict(user, bus_id, clf, use_content))
     preds.sort(reverse=True, key=lambda x: x.est)
     if len(preds) >= 5:
         preds = preds[0:5]
@@ -193,7 +199,7 @@ def inspect_item(num):
     exit_words = ['QUIT', 'quit', 'q', 'Q']
     while not valid:
         sel = input(
-            "Please enter the number of the bar you wish to further inspect\nor enter quit/QUIT/q/Q to logout\n")
+            "Please enter the number of the bar you wish to further inspect\nor enter quit/QUIT/q/Q to go back\n")
         try:
             sel = int(sel)
             if 0 < sel <= num:
@@ -241,6 +247,16 @@ def display_item(item, rat, used_content):
         rtime = rtime.strftime('%H:%M')
         print(f'{day:<13}{ltime}-{rtime}')
     print('*'*24)
+    cov_row = covid.loc[covid['business_id'] == item, ['delivery or takeout', 'Grubhub enabled']].iloc[-1]
+    take = False
+    if cov_row['delivery or takeout']:
+        take = True
+        print("This estabishment offers takeout services")
+    if cov_row['Grubhub enabled']:
+        take = True
+        print("This estabishment is on Grubhub")
+    if take:
+        print('*'*24)
     print(f"We think you would rate this estabishment {round(rat)} stars")
     if used_content:
         tmp_str = "Based off of previous establishments you have rated"
@@ -399,11 +415,7 @@ def login():
             resp = input()
             if resp == '1':
                 valid = True
-                print("The system is now generating your recommendations in order")
-                print("This step can take longer the fewer reviews you have")
-                print("\n")
-                preds = gen_preds(user, False)
-                show_items(preds)
+                takeaway(user)
             elif resp == '2':
                 valid = True
                 update_rec(user)
