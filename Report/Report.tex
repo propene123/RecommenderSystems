@@ -77,6 +77,20 @@ Explainability was measured using the Mean Explainability Precision (MEP)\cite{b
 \end{equation}
 where $I_{E}^{j}$ is the set of explainable recommendations to user $j$ and $I_{j}$ is the set of recommendations to user $j$
 \section{Implementation}
+\subsection{Input Interface}
+The interface for \textit{Bars4U} is a very simple command line interface. The active user is recognised by inputting the \texttt{user\_id} from a list of available IDs in \texttt{README.txt}. The user data is then gathered explicitly in the form of their reviews and \texttt{name}. Finally the user can either request a list of 5 recommendations or can update a rating for an item which then triggers the system to regenerate their user profile.
+\subsection{Recommendation Algorithm}
+From the main database of reviews and businesses a pivot table is generated as a matrix of \texttt{user\_id}, \texttt{business\_id}, and \texttt{stars}. This pivot matrix is then used with the SVD algorithm in which the predicted rating $\hat{r}_{ui}$ is given by:
+\begin{equation}
+    \hat{r}_{ui}=\mu+b_{i}+b_{u}+q_{i}^{T}p_{u}
+\end{equation}
+The SVD model is fit using the pivot table to learn the parameters $\mu$, $b_{i}$, and $b_{u}$ for later use.
+\par
+For each unrated item for the user, the \texttt{review\_count} feature is checked against the switching threshold value of 50 reviews (this value was chosen after testing showed it had the best balance of RMSE and runtime). If \texttt{review\_count} is greater than 50 then the item prediction is calculated using the fitted SVD model. If not then the content-based recommender is used. This model uses the \texttt{categories} and \texttt{attributes} features are collated into a bag-of-words for each rated item. The bag-of-words for all items are then converted into tf-idf vectors, resulting in a matrix of rated item vectors for the user. These vectors are then used to train a Rocchio Classifier (Nearest Centroid, using Euclidean distance as similarity measure), this classifier is then used to predict ratings for items with fewer than 51 ratings.
+\subsection{Output Interface}
+The output interface is designed for a computer monitor, and displays a list of 5 recommended bars in order of preference. The user can then enter the number of a bar to see more information about. This information is derived from the information in the pruned \texttt{business.json} file and includes things such as the location and opening times. At the bottom of the business information the predicted star rating is displayed to the user along with an explanation as to how this rating was predicted.
+
+
 
 \begin{thebibliography}{00}
 \bibitem{b1}Burke, Robin \& Robin,. (2007). Hybrid Web Recommender Systems. LNCS. 4321. 10.1007/978-3-540-72079-9\_12.
