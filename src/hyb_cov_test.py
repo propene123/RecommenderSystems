@@ -1,11 +1,27 @@
+from collections import defaultdict
 import ast
 import numpy as np
 import pandas as pd
 from surprise import AlgoBase, Dataset, Reader, accuracy
 from surprise.prediction_algorithms import SVD
-from surprise.model_selection import train_test_split, cross_validate
+from surprise.model_selection import train_test_split, cross_validate, KFold
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestCentroid
+
+
+def coverage(predictions, k=5, i_tot=0):
+    cov_items = set()
+    # First map the predictions to each user.
+    user_est_true = defaultdict(list)
+    for uid, iid, _, est, _ in predictions:
+        user_est_true[uid].append((est, iid))
+
+    for uid, user_ratings in user_est_true.items():
+        # Sort user ratings by estimated value
+        user_ratings.sort(key=lambda x: x[0], reverse=True)
+        cov_items.update(x[1] for x in user_ratings[:k])
+
+    return len(cov_items) / i_tot
 
 
 def rem_pref(s, pref):
@@ -46,27 +62,28 @@ class Hyb(AlgoBase):
         if self.bus_dat.loc[item_id, 'review_count'] < 50:
             user_revs = self.rev_dat.loc[self.rev_dat['user_id'] == user_id]
             rated_bus = user_revs.loc[:, 'business_id':'stars']
-            if user_revs.loc[:,'stars'].nunique() > 1:
+            if user_revs.loc[:, 'stars'].nunique() > 1:
                 x = []
                 y = []
                 for t in rated_bus['business_id']:
                     idx = self.indices[self.indices == t].index[0]
                     counts = np.array(count_mat[idx].todense())
-                    row = rated_bus[rated_bus['business_id'] == t]['stars'].index
+                    row = rated_bus[rated_bus['business_id']
+                                    == t]['stars'].index
                     for j in range(len(row)):
                         x.append(counts[0].flatten().tolist())
-                        y.append(rated_bus[rated_bus['business_id'] == t]['stars'][row[j]])
+                        y.append(
+                            rated_bus[rated_bus['business_id'] == t]['stars'][row[j]])
                 x = np.array(x)
                 y = np.array(y)
                 clf = NearestCentroid()
                 clf.fit(x, y)
                 idx = self.indices[self.indices == item_id].index[0]
-                return clf.predict(self.count_mat[idx].todense())
+                return clf.predict(self.count_mat[idx].todense())[0]
             else:
                 return self.cfp.estimate(u, i)
         else:
             return self.cfp.estimate(u, i)
-
 
 
 def get_attr(in_dict):
@@ -106,12 +123,22 @@ reviews = pd.read_csv('../data/pruned_revs.csv')
 pivot = reviews[['user_id', 'business_id', 'stars']]
 r = Reader(rating_scale=(1, 5))
 data = Dataset.load_from_df(pivot, r)
-# train, test = train_test_split(data, test_size=0.25)
-# train = data.build_full_trainset()
 alg = Hyb(count_mat, indices, reviews, full_bus)
+kf = KFold(n_splits=5)
 
-cross_validate(alg, data, measures=['rmse'], cv=5, verbose=True)
+split = 1
+covs = []
+tot = pivot['business_id'].nunique()
+for trainset, testset in kf.split(data):
+    alg.fit(trainset)
+    predictions = alg.test(testset)
+    cov = coverage(predictions, k=5, i_tot=tot)
+    print(f'SPLIT {split}')
+    print('*'*25)
+    covs.append(cov)
+    print(cov)
+    print('*'*25)
+    split += 1
 
-# alg.fit(train)
-# pred = alg.test(test)
-# accuracy.rmse(pred)
+avg_cov = sum(covs) / len(covs)
+print(f'Full cov: {avg_cov}')

@@ -48,7 +48,7 @@ class Hyb(AlgoBase):
         if self.bus_dat.loc[item_id, 'review_count'] < 50:
             if content:
                 idx = self.indices[self.indices == item_id].index[0]
-                return user_prof.predict(self.count_mat[idx].todense()), True
+                return user_prof.predict(self.count_mat[idx].todense())[0], True
             else:
                 return self.cfp.estimate(u, i), False
         else:
