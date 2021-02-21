@@ -143,7 +143,7 @@ reviews = pd.read_csv('../data/pruned_revs.csv')
 users = pd.read_csv('../data/pruned_users.csv')
 pivot = reviews[['user_id', 'business_id', 'stars']]
 pivot = reviews.loc[:, ['user_id', 'business_id', 'stars']]
-print(pivot.head())
+# print(pivot.head(10))
 alg = Hyb(count_mat, indices, reviews, full_bus)
 fit_alg(alg, pivot)
 
